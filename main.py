@@ -13,7 +13,7 @@ class MusicRecommendationSystem(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Music Recommendation System")
-        self.setGeometry(0, 0, 1920, 1080)
+        self.setGeometry(200, 200, 800, 600)  # Default small screen size
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setMinimumSize(400, 300)
 
@@ -42,28 +42,22 @@ class MusicRecommendationSystem(QMainWindow):
         self.app.playlist_button.clicked.connect(lambda: self.playlist.setup_ui(self.app))
         self.app.close_button.clicked.connect(self.close)
         self.app.minimize_button.clicked.connect(self.showMinimized)
-        self.app.toggle_size_button.clicked.connect(self.toggle_window_size)
 
         # Initial setup with Recommendations
         self.recommendations.setup_ui(self.app)
-
-        self.is_fullscreen = True
-
-    def toggle_window_size(self):
-        if self.is_fullscreen:
-            self.setGeometry(200, 200, 800, 600)
-            self.is_fullscreen = False
-        else:
-            self.setGeometry(0, 0, 1920, 1080)
-            self.is_fullscreen = True
+        self.app.set_active_button(self.app.recommend_button)  # Highlight Recommendations button on startup
 
     def mousePressEvent(self, event):
-        if not self.is_fullscreen and event.button() == Qt.MouseButton.LeftButton:
+        if event.button() == Qt.MouseButton.LeftButton:
             self.app.start_drag(event)
 
     def mouseMoveEvent(self, event):
-        if not self.is_fullscreen:
-            self.app.drag_window(event)
+        self.app.drag_window(event)
+
+    def resizeEvent(self, event):
+        if hasattr(self, 'catalog') and self.app.content_container.layout() and self.catalog.catalog_data:
+            self.catalog.set_catalog({}, self.app)  # Re-render catalog on resize if data exists
+        super().resizeEvent(event)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

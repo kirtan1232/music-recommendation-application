@@ -68,9 +68,8 @@ class App:
 
         self.recommend_button = QPushButton("Recommendations")
         self.recommend_button.setStyleSheet("""
-            QPushButton { font-size: 14px; color: #FFFFFF; background-color: #1DB954; padding: 10px; border: none; }
-            QPushButton:hover { background-color: #17a34a; }
-            QPushButton:default { background-color: #1DB954; }
+            QPushButton { font-size: 14px; color: #FFFFFF; background-color: #2A2A2A; padding: 10px; border: none; }
+            QPushButton:hover { background-color: #333; }
         """)
         self.recommend_button.clicked.connect(lambda: self.set_active_button(self.recommend_button))
         sidebar.addWidget(self.recommend_button)
@@ -144,7 +143,8 @@ class App:
                 widget.deleteLater()
 
     def set_active_button(self, button):
-        if self.active_button:
+        if self.active_button and self.active_button != button:
             self.active_button.setStyleSheet(self.active_button.styleSheet().replace("#1DB954", "#2A2A2A"))
         self.active_button = button
-        button.setStyleSheet(button.styleSheet().replace("#2A2A2A", "#1DB954"))
+        if button:
+            button.setStyleSheet(button.styleSheet().replace("#2A2A2A", "#1DB954"))
