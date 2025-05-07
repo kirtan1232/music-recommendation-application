@@ -7,7 +7,6 @@ class App:
         self.central_widget = central_widget
         self.drag_position = QPoint()
         self.active_button = None
-        self.current_section = None
         self.setup_ui()
 
     def setup_ui(self):
@@ -149,13 +148,3 @@ class App:
             self.active_button.setStyleSheet(self.active_button.styleSheet().replace("#1DB954", "#2A2A2A"))
         self.active_button = button
         button.setStyleSheet(button.styleSheet().replace("#2A2A2A", "#1DB954"))
-
-    def get_content_width(self):
-        return self.content_area.width() - 30  # Subtract padding
-
-    def set_current_section(self, section):
-        self.current_section = section
-
-    def resizeEvent(self, event):
-        if self.current_section:
-            self.current_section()

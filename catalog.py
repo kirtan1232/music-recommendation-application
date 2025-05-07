@@ -1,39 +1,17 @@
 import spotipy
-from PyQt6.QtWidgets import (QLabel, QLineEdit, QPushButton, QWidget, QHBoxLayout, QGridLayout, QApplication)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtWidgets import (QLabel, QLineEdit, QPushButton, QWidget, QHBoxLayout, QGridLayout)
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 import requests
 from io import BytesIO
-
-class ImageLoaderThread(QThread):
-    image_loaded = pyqtSignal(QLabel, QPixmap)
-
-    def __init__(self, url, max_size):
-        super().__init__()
-        self.url = url
-        self.max_size = max_size
-
-    def run(self):
-        try:
-            response = requests.get(self.url, timeout=5)
-            image_data = BytesIO(response.content)
-            pixmap = QPixmap()
-            pixmap.loadFromData(image_data.read())
-            scaled_pixmap = pixmap.scaled(self.max_size, self.max_size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
-            self.image_loaded.emit(self.sender(), scaled_pixmap)
-        except Exception:
-            pass
 
 class Catalog:
     def __init__(self, sp, market):
         self.sp = sp
         self.market = market
-        self.image_cache = {}  # Cache for images
-        self.threads = []  # Keep track of threads to avoid garbage collection
 
     def setup_ui(self, app):
         app.clear_content()
-        app.set_current_section(self.setup_ui)
 
         catalog_label = QLabel("Explore Music Catalog", alignment=Qt.AlignmentFlag.AlignCenter)
         catalog_label.setStyleSheet("font-size: 24px; font-weight: bold; color: #FFFFFF; padding: 10px; background-color: #1DB954; border-radius: 10px;")
@@ -119,9 +97,8 @@ class Catalog:
             if widget is not None:
                 widget.deleteLater()
 
-        content_width = app.get_content_width()
-        columns = 2 if content_width < 600 else 5  # Switch to 2 columns if width < 600px
-        image_max_size = min(content_width // (columns + 1), 120)  # Adjust image size based on columns
+        content_width = app.content_area.width() - 30  # Subtract some padding
+        image_max_size = min(content_width // 6, 120)  # Adjusted for 5 columns, reduced max size
 
         items = []
         items.extend([(f"Track: {t['name']}", t['artist'], t['image_url']) for t in catalog_data['tracks']])
@@ -131,20 +108,19 @@ class Catalog:
         for i, (name, detail, image_url) in enumerate(items):
             container = QWidget()
             layout = QHBoxLayout(container)
-            layout.setContentsMargins(2, 2, 2, 2)
+            layout.setContentsMargins(2, 2, 2, 2)  # Reduced margins for tighter layout
 
             image_label = QLabel()
             if image_url:
-                if image_url in self.image_cache:
-                    scaled_pixmap = self.image_cache[image_url]
+                try:
+                    response = requests.get(image_url)
+                    image_data = BytesIO(response.content)
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(image_data.read())
+                    scaled_pixmap = pixmap.scaled(image_max_size, image_max_size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
                     image_label.setPixmap(scaled_pixmap)
-                else:
-                    image_label.setText("Loading...")
-                    thread = ImageLoaderThread(image_url, image_max_size)
-                    thread.image_loaded.connect(lambda label, pixmap, url=image_url: self.on_image_loaded(label, pixmap, url))
-                    thread.sender = lambda: image_label
-                    thread.start()
-                    self.threads.append(thread)
+                except Exception:
+                    image_label.setText("Image not available")
             else:
                 image_label.setText("No image")
             image_label.setMaximumSize(image_max_size, image_max_size)
@@ -152,23 +128,17 @@ class Catalog:
             layout.addWidget(image_label)
 
             info_label = QLabel(f"{name} - {detail}")
-            info_label.setStyleSheet("font-size: 12px; color: #FFFFFF;")
+            info_label.setStyleSheet("font-size: 12px; color: #FFFFFF;")  # Reduced font size for compactness
             info_label.setWordWrap(True)
             layout.addWidget(info_label)
 
-            row = (i // columns) + 3
-            col = i % columns
-            app.content_grid.addWidget(container, row, col, 1, 1)
+            row = (i // 5) + 3  # 5 columns per row
+            col = i % 5
+            app.content_grid.addWidget(container, row, col, 1, 1)  # Single column span
 
-        app.content_grid.setHorizontalSpacing(5)
-        app.content_grid.setVerticalSpacing(5)
+        app.content_grid.setHorizontalSpacing(5)  # Reduced horizontal spacing
+        app.content_grid.setVerticalSpacing(5)    # Reduced vertical spacing
         app.content_container.adjustSize()
-
-    def on_image_loaded(self, label, pixmap, url):
-        self.image_cache[url] = pixmap
-        label.setText("")
-        label.setPixmap(pixmap)
-        QApplication.processEvents()
 
     def clear_catalog(self, app):
         for i in range(3, app.content_grid.count()):
@@ -182,8 +152,6 @@ class Catalog:
             if widget is not None:
                 widget.deleteLater()
 
-        content_width = app.get_content_width()
-        columns = 2 if content_width < 600 else 5
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(5, 5, 5, 5)
@@ -191,5 +159,5 @@ class Catalog:
         label.setStyleSheet("font-size: 14px; color: #FFFFFF;")
         label.setWordWrap(True)
         layout.addWidget(label)
-        app.content_grid.addWidget(container, 3, 0, 1, columns)
+        app.content_grid.addWidget(container, 3, 0, 1, 5)  # Span 5 columns
         app.content_container.adjustSize()

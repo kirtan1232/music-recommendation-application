@@ -1,39 +1,17 @@
 import spotipy
-from PyQt6.QtWidgets import (QLabel, QLineEdit, QPushButton, QWidget, QHBoxLayout, QGridLayout, QApplication)
-from PyQt6.QtCore import Qt, QThread, pyqtSignal
+from PyQt6.QtWidgets import (QLabel, QLineEdit, QPushButton, QWidget, QHBoxLayout, QGridLayout)
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QPixmap
 import requests
 from io import BytesIO
-
-class ImageLoaderThread(QThread):
-    image_loaded = pyqtSignal(QLabel, QPixmap)
-
-    def __init__(self, url, max_size):
-        super().__init__()
-        self.url = url
-        self.max_size = max_size
-
-    def run(self):
-        try:
-            response = requests.get(self.url, timeout=5)
-            image_data = BytesIO(response.content)
-            pixmap = QPixmap()
-            pixmap.loadFromData(image_data.read())
-            scaled_pixmap = pixmap.scaled(self.max_size, self.max_size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
-            self.image_loaded.emit(self.sender(), scaled_pixmap)
-        except Exception:
-            pass
 
 class Recommendations:
     def __init__(self, sp, market):
         self.sp = sp
         self.market = market
-        self.image_cache = {}
-        self.threads = []
 
     def setup_ui(self, app):
         app.clear_content()
-        app.set_current_section(self.setup_ui)
 
         input_label = QLabel("Enter Song or Playlist (Name or URL):")
         input_label.setStyleSheet("font-size: 16px; color: #FFFFFF; margin-top: 10px;")
@@ -156,27 +134,25 @@ class Recommendations:
             if widget is not None:
                 widget.deleteLater()
 
-        content_width = app.get_content_width()
-        columns = 2 if content_width < 600 else 5
-        image_max_size = min(content_width // (columns + 1), 120)
+        content_width = app.content_area.width() - 30  # Subtract some padding
+        image_max_size = min(content_width // 4, 150)  # Responsive max image size
 
         for i, rec in enumerate(recommendations):
             container = QWidget()
             layout = QHBoxLayout(container)
-            layout.setContentsMargins(2, 2, 2, 2)
+            layout.setContentsMargins(5, 5, 5, 5)
 
             image_label = QLabel()
             if rec['image_url']:
-                if rec['image_url'] in self.image_cache:
-                    scaled_pixmap = self.image_cache[rec['image_url']]
+                try:
+                    response = requests.get(rec['image_url'])
+                    image_data = BytesIO(response.content)
+                    pixmap = QPixmap()
+                    pixmap.loadFromData(image_data.read())
+                    scaled_pixmap = pixmap.scaled(image_max_size, image_max_size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
                     image_label.setPixmap(scaled_pixmap)
-                else:
-                    image_label.setText("Loading...")
-                    thread = ImageLoaderThread(rec['image_url'], image_max_size)
-                    thread.image_loaded.connect(lambda label, pixmap, url=rec['image_url']: self.on_image_loaded(label, pixmap, url))
-                    thread.sender = lambda: image_label
-                    thread.start()
-                    self.threads.append(thread)
+                except Exception:
+                    image_label.setText("Image not available")
             else:
                 image_label.setText("No image")
             image_label.setMaximumSize(image_max_size, image_max_size)
@@ -184,23 +160,15 @@ class Recommendations:
             layout.addWidget(image_label)
 
             info_label = QLabel(f"{rec['name']} by {rec['artist']}")
-            info_label.setStyleSheet("font-size: 12px; color: #FFFFFF;")
+            info_label.setStyleSheet("font-size: 14px; color: #FFFFFF;")
             info_label.setWordWrap(True)
             layout.addWidget(info_label)
 
-            row = (i // columns) + 3
-            col = i % columns
-            app.content_grid.addWidget(container, row, col, 1, 1)
+            row = (i // 2) + 3
+            col = (i % 2) * 2
+            app.content_grid.addWidget(container, row, col, 1, 2)
 
-        app.content_grid.setHorizontalSpacing(5)
-        app.content_grid.setVerticalSpacing(5)
         app.content_container.adjustSize()
-
-    def on_image_loaded(self, label, pixmap, url):
-        self.image_cache[url] = pixmap
-        label.setText("")
-        label.setPixmap(pixmap)
-        QApplication.processEvents()
 
     def clear_recommendations(self, app):
         for i in range(3, app.content_grid.count()):
@@ -214,8 +182,6 @@ class Recommendations:
             if widget is not None:
                 widget.deleteLater()
 
-        content_width = app.get_content_width()
-        columns = 2 if content_width < 600 else 5
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(5, 5, 5, 5)
@@ -223,5 +189,5 @@ class Recommendations:
         label.setStyleSheet("font-size: 14px; color: #FFFFFF;")
         label.setWordWrap(True)
         layout.addWidget(label)
-        app.content_grid.addWidget(container, 3, 0, 1, columns)
+        app.content_grid.addWidget(container, 3, 0, 1, 2)
         app.content_container.adjustSize()
