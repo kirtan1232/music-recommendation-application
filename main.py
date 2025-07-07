@@ -1,8 +1,8 @@
 import sys
-import spotipy
-from spotipy.oauth2 import SpotifyOAuth
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget)
-from PyQt6.QtCore import Qt
+import spotipy 
+from spotipy.oauth2 import SpotifyOAuth 
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget) 
+from PyQt6.QtCore import Qt 
 from app import App
 from recommendations import Recommendations
 from catalog import Catalog
