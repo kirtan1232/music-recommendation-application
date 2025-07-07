@@ -3,6 +3,7 @@ from PyQt6.QtWidgets import (QLabel, QLineEdit, QPushButton, QWidget,
                             QSizePolicy, QSpacerItem, QScrollArea)
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtGui import QPixmap, QFont
+from PyQt6.QtGui import QMovie  # Import QMovie for GIF animation
 import requests
 from io import BytesIO
 import google.generativeai as genai
@@ -62,6 +63,17 @@ class Recommendations:
         
         main_layout.addWidget(input_container)
         
+        # Background GIF with animation (reduced size)
+        self.background_gif = QLabel()
+        self.background_gif.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.movie = QMovie("background.gif")
+        if self.movie.isValid():
+            self.background_gif.setMovie(self.movie)
+            self.movie.start()  # Start the GIF animation
+            # Reduce size to 150x150 pixels (adjust as needed)
+            self.background_gif.setFixedSize(600,300)
+        main_layout.addWidget(self.background_gif)
+        
         # Create scroll area for content
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
@@ -110,15 +122,18 @@ Return only the recommendations, no additional text or explanations.
 
     def get_recommendations(self, keyword):
         self.clear_recommendations()
+        self.background_gif.hide()
 
         if not keyword:
             self.show_message("Please enter a keyword to search for music.")
+            self.background_gif.show()
             return
 
         recommendations = self.get_gemini_recommendations(keyword)
         
         if not recommendations:
             self.show_message("No recommendations found. Try a different keyword.")
+            self.background_gif.show()
             return
         
         recommendations_data = []
@@ -160,6 +175,7 @@ Return only the recommendations, no additional text or explanations.
         
         if not recommendations:
             self.show_message("No valid recommendations to display.")
+            self.background_gif.show()
             return
         
         content_width = self.content_container.width() - 40
@@ -246,3 +262,4 @@ Return only the recommendations, no additional text or explanations.
         
         self.content_grid.addWidget(message, 0, 0, 1, 2)
         self.content_container.adjustSize()
+        self.background_gif.show()

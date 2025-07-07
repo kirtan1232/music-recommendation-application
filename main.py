@@ -24,7 +24,7 @@ class MusicRecommendationSystem(QMainWindow):
             client_id="e0b95b00815a44a7bfe0679d69b0c0c9",
             client_secret="c64ba96c85e54a72b51c3a933b2402be",
             redirect_uri="http://127.0.0.1:8888/callback",
-            scope="user-library-read playlist-read-private user-top-read user-read-private"
+            scope="user-library-read playlist-read-private user-top-read user-read-private user-read-playback-state user-modify-playback-state"
         ))
 
         user_profile = self.sp.current_user()
@@ -35,7 +35,7 @@ class MusicRecommendationSystem(QMainWindow):
         self.trends = Trends(self.sp, self.market)
         self.playlist = Playlist(self.sp, self.market)
 
-        self.app = App(central_widget)
+        self.app = App(central_widget, self.sp)
         self.app.recommend_button.clicked.connect(lambda: self.recommendations.setup_ui(self.app))
         self.app.catalog_button.clicked.connect(lambda: self.catalog.setup_ui(self.app))
         self.app.trends_button.clicked.connect(lambda: self.trends.setup_ui(self.app))
@@ -46,6 +46,7 @@ class MusicRecommendationSystem(QMainWindow):
         # Initial setup with Recommendations
         self.recommendations.setup_ui(self.app)
         self.app.set_active_button(self.app.recommend_button)  # Highlight Recommendations button on startup
+       
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

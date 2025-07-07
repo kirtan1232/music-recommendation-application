@@ -1,16 +1,20 @@
 from PyQt6.QtWidgets import QWidget, QApplication
 from PyQt6.QtCore import QPoint, Qt  # Added Qt import
 import sys
+
+import scipy as sp
 from ui_setup import setup_ui
 from theme_manager import ThemeManager
+from player_controls import PlayerControls 
 
 class App:
-    def __init__(self, central_widget):
+    def __init__(self, central_widget,sp=None):
         self.central_widget = central_widget
         self.drag_position = QPoint()
         self.active_button = None
         self.is_dark_mode = True
         self.theme_manager = ThemeManager(self)
+        self.sp = sp  # Will be set by main window
         self.setup_ui()
 
     def setup_ui(self):

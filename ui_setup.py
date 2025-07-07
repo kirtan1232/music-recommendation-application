@@ -1,6 +1,8 @@
 from PyQt6.QtWidgets import (QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QScrollArea, QGridLayout, QFrame, QWidget)
 from PyQt6.QtCore import Qt
 
+from player_controls import PlayerControls
+
 def setup_ui(app):
     main_layout = QVBoxLayout(app.central_widget)
     main_layout.setContentsMargins(0, 0, 0, 0)
@@ -94,6 +96,8 @@ def setup_ui(app):
     app.sidebar_widget.setStyleSheet(app.theme_manager.get_sidebar_stylesheet())
     content_layout.addWidget(app.sidebar_widget)
 
+
+
     # Main Content Area
     app.content_area = QScrollArea()
     app.content_area.setWidgetResizable(True)
@@ -107,5 +111,18 @@ def setup_ui(app):
 
     main_layout.addLayout(content_layout)
 
+     # Player Controls (at the end of the function)
+    if hasattr(app, 'sp') and app.sp is not None:  # Check if sp exists
+        app.player_controls = PlayerControls(app.sp)
+        main_layout.addWidget(app.player_controls)
+    else:
+        # Create a placeholder if no Spotify client is available
+        placeholder = QLabel("Spotify playback controls not available")
+        placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        placeholder.setStyleSheet("color: #AAAAAA; padding: 10px;")
+        main_layout.addWidget(placeholder)
+
     app.title_bar.mousePressEvent = app.start_drag
     app.title_bar.mouseMoveEvent = app.drag_window
+
+    
