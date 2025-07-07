@@ -55,9 +55,23 @@ class MusicRecommendationSystem(QMainWindow):
         self.app.drag_window(event)
 
     def resizeEvent(self, event):
-        if hasattr(self, 'catalog') and self.app.content_container.layout() and self.catalog.catalog_data:
-            self.catalog.set_catalog({}, self.app)  # Re-render catalog on resize if data exists
         super().resizeEvent(event)
+    
+        # Safely handle catalog resize
+        if hasattr(self, 'catalog') and hasattr(self.catalog, 'catalog_data'):
+            try:
+                if any(self.catalog.catalog_data.values()):  # Check if there's any data to display
+                    self.catalog.display_results(self.catalog.catalog_data, self.app)
+            except Exception as e:
+                print(f"Error during catalog resize: {str(e)}")
+        
+        # Handle other components similarly if needed
+        if hasattr(self, 'recommendations'):
+            try:
+                # Add similar handling for recommendations if needed
+                pass
+            except Exception as e:
+                print(f"Error during recommendations resize: {str(e)}")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

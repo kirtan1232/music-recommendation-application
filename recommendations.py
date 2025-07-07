@@ -1,193 +1,248 @@
-import spotipy
-from PyQt6.QtWidgets import (QLabel, QLineEdit, QPushButton, QWidget, QHBoxLayout, QGridLayout)
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtWidgets import (QLabel, QLineEdit, QPushButton, QWidget, 
+                            QHBoxLayout, QVBoxLayout, QGridLayout, 
+                            QSizePolicy, QSpacerItem, QScrollArea)
+from PyQt6.QtCore import Qt, QSize
+from PyQt6.QtGui import QPixmap, QFont
 import requests
 from io import BytesIO
+import google.generativeai as genai
+import re
 
 class Recommendations:
     def __init__(self, sp, market):
         self.sp = sp
         self.market = market
+        genai.configure(api_key="AIzaSyA6z_xEBvwAm1vBtbcfp9ZnWRcTLN2Jh6o")
+        self.min_width = 300
+        self.max_image_size = 200
 
     def setup_ui(self, app):
         app.clear_content()
-
-        input_label = QLabel("Enter Song or Playlist (Name or URL):")
-        input_label.setStyleSheet("font-size: 16px; color: #FFFFFF; margin-top: 10px;")
-        app.content_grid.addWidget(input_label, 0, 0)
-
+        
+        # Create main container
+        main_container = QWidget()
+        main_layout = QVBoxLayout(main_container)
+        main_layout.setContentsMargins(0, 0, 0, 0)
+        main_layout.setSpacing(15)
+        
+        # Header
+        header = QLabel("Music Recommendation System")
+        header.setStyleSheet("font-size: 20px; font-weight: bold; color: #1DB954;")
+        header.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        main_layout.addWidget(header)
+        
+        # Input section (fixed at top)
+        input_container = QWidget()
+        input_layout = QHBoxLayout(input_container)
+        input_layout.setContentsMargins(0, 0, 0, 0)
+        
         self.input_field = QLineEdit()
-        self.input_field.setPlaceholderText("e.g., 'Bohemian Rhapsody' or a Spotify URL")
+        self.input_field.setPlaceholderText("Enter mood or genre (e.g., 'happy summer' or 'relaxing jazz')")
         self.input_field.setStyleSheet("""
-            font-size: 14px; padding: 10px; border: 2px solid #1DB954; border-radius: 5px;
+            font-size: 14px; padding: 10px; 
+            border: 2px solid #1DB954; border-radius: 5px;
             background-color: #2A2A2A; color: #FFFFFF;
         """)
-        self.input_field.setMinimumHeight(40)
-        app.content_grid.addWidget(self.input_field, 1, 0)
-
-        recommend_button = QPushButton("Get Recommendations")
+        self.input_field.setMinimumHeight(45)
+        input_layout.addWidget(self.input_field)
+        
+        recommend_button = QPushButton("Search")
+        recommend_button.setFixedSize(100, 45)
         recommend_button.setStyleSheet("""
-            QPushButton { font-size: 16px; font-weight: bold; color: #FFFFFF; background-color: #1DB954;
-                          padding: 10px; border-radius: 5px; border: none; }
+            QPushButton {
+                font-size: 14px; font-weight: bold; 
+                color: #FFFFFF; background-color: #1DB954;
+                border-radius: 5px; border: none;
+            }
             QPushButton:hover { background-color: #17a34a; }
             QPushButton:pressed { background-color: #158a3f; }
         """)
-        recommend_button.setMinimumHeight(50)
-        recommend_button.clicked.connect(lambda: self.get_recommendations(self.input_field.text(), app))
-        app.content_grid.addWidget(recommend_button, 2, 0)
-
+        recommend_button.clicked.connect(lambda: self.get_recommendations(self.input_field.text()))
+        input_layout.addWidget(recommend_button)
+        
+        main_layout.addWidget(input_container)
+        
+        # Create scroll area for content
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setStyleSheet("border: none;")
+        
+        # Content container
+        self.content_container = QWidget()
+        self.content_grid = QGridLayout(self.content_container)
+        self.content_grid.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self.content_grid.setSpacing(15)
+        
+        scroll_area.setWidget(self.content_container)
+        main_layout.addWidget(scroll_area)
+        
+        # Add main container to app's content grid
+        app.content_grid.addWidget(main_container, 0, 0)
+        
+        app.content_area.setMinimumWidth(self.min_width)
         app.content_container.adjustSize()
 
-    def get_recommendations(self, query, app):
-        self.clear_recommendations(app)
+    def get_gemini_recommendations(self, keyword):
+        try:
+            prompt = f"""
+Based on the keyword "{keyword}", recommend exactly 5 songs that match the mood or genre. 
+Format each recommendation strictly as: "Song Title - Artist Name".
+Also recommend me songs which are available on Spotify.
+Return only the recommendations, no additional text or explanations.
+"""
+            model = genai.GenerativeModel(model_name="models/gemini-2.5-flash")
+            response = model.generate_content(prompt)
+            
+            recommendations = []
+            for line in response.text.strip().split('\n'):
+                line = line.strip()
+                if line and re.match(r'^(.+)\s-\s(.+)$', line):
+                    recommendations.append(line)
+                elif line and re.match(r'^(.+)\sby\s(.+)$', line):
+                    song, artist = line.split(' by ', 1)
+                    recommendations.append(f"{song.strip()} - {artist.strip()}")
+            
+            return recommendations[:5]
+        
+        except Exception as e:
+            print(f"Gemini API Error: {str(e)}")
+            return []
 
-        if not query:
-            self.set_recommendation_output("Please enter a song or playlist.", app)
+    def get_recommendations(self, keyword):
+        self.clear_recommendations()
+
+        if not keyword:
+            self.show_message("Please enter a keyword to search for music.")
             return
 
-        try:
-            results = self.sp.search(q=query, type="track,playlist", limit=1, market=self.market)
-            track_id = None
-            artist_id = None
-            genre = None
-
-            if results['tracks']['items']:
-                track = results['tracks']['items'][0]
-                track_id = track['id']
-                artist_id = track['artists'][0]['id']
-                artist_info = self.sp.artist(artist_id)
-                genre = artist_info['genres'][0] if artist_info['genres'] else 'pop'
-                self.set_recommendation_output(f"Found track: {track['name']} by {track['artists'][0]['name']}", app)
-            elif results['playlists']['items']:
-                playlist = results['playlists']['items'][0]
-                playlist_id = playlist['id']
-                tracks = self.sp.playlist_tracks(playlist_id, market=self.market)['items']
-                if tracks:
-                    track_id = tracks[0]['track']['id']
-                    artist_id = tracks[0]['track']['artists'][0]['id']
-                    artist_info = self.sp.artist(artist_id)
-                    genre = artist_info['genres'][0] if artist_info['genres'] else 'pop'
-                    self.set_recommendation_output(f"Found playlist: {playlist['name']}", app)
-                else:
-                    self.set_recommendation_output("Playlist is empty.", app)
-                    return
-            else:
-                self.set_recommendation_output("No matching track or playlist found in your region.", app)
-                return
-
-            if track_id:
-                track_info = self.sp.track(track_id, market=self.market)
-                if not track_info['is_playable']:
-                    self.set_recommendation_output("This track is not playable in your region, so recommendations cannot be generated.", app)
-                    return
-
-                recommendations = None
-                try:
-                    self.set_recommendation_output("Attempting track-based recommendations...", app)
-                    recommendations = self.sp.recommendations(seed_tracks=[track_id], limit=5, market=self.market)
-                except spotipy.exceptions.SpotifyException as e:
-                    if e.http_status == 404:
-                        self.set_recommendation_output("Track-based recommendations failed, trying artist-based recommendations...", app)
-                if not recommendations and artist_id:
+        recommendations = self.get_gemini_recommendations(keyword)
+        
+        if not recommendations:
+            self.show_message("No recommendations found. Try a different keyword.")
+            return
+        
+        recommendations_data = []
+        for rec in recommendations:
+            try:
+                song_name, artist_name = rec.split(' - ', 1)
+                image_url = None
+                
+                if self.sp:
                     try:
-                        recommendations = self.sp.recommendations(seed_artists=[artist_id], limit=5, market=self.market)
-                    except spotipy.exceptions.SpotifyException as e:
-                        if e.http_status == 404:
-                            self.set_recommendation_output("Artist-based recommendations failed, trying genre-based recommendations...", app)
-                if not recommendations and genre:
-                    try:
-                        recommendations = self.sp.recommendations(seed_genres=[genre], limit=5, market=self.market)
-                    except spotipy.exceptions.SpotifyException as e:
-                        if e.http_status == 404:
-                            self.set_recommendation_output("Genre-based recommendations failed.", app)
+                        search_results = self.sp.search(
+                            q=f"track:{song_name} artist:{artist_name}", 
+                            type="track", 
+                            limit=1, 
+                            market=self.market
+                        )
+                        if search_results['tracks']['items']:
+                            track = search_results['tracks']['items'][0]
+                            song_name = track['name']
+                            artist_name = track['artists'][0]['name']
+                            if track['album']['images']:
+                                image_url = track['album']['images'][0]['url']
+                    except Exception as e:
+                        print(f"Spotify search error: {str(e)}")
+                
+                recommendations_data.append({
+                    "name": song_name.strip(),
+                    "artist": artist_name.strip(),
+                    "image_url": image_url
+                })
+            except Exception as e:
+                print(f"Error processing recommendation: {rec} - {str(e)}")
+                continue
+        
+        self.display_recommendations(recommendations_data)
 
-                rec_tracks = recommendations['tracks'] if recommendations else []
-                if not rec_tracks:
-                    self.set_recommendation_output("No recommendations available. This may be due to account restrictions (e.g., free account) or regional limitations.", app)
-                    return
-
-                recommendations_data = []
-                for idx, track in enumerate(rec_tracks, 1):
-                    album_id = track['album']['id']
-                    album_info = self.sp.album(album_id)
-                    image_url = album_info['images'][0]['url'] if album_info['images'] else None
-                    recommendations_data.append({
-                        "name": f"{idx}. {track['name']}",
-                        "artist": track['artists'][0]['name'],
-                        "image_url": image_url
-                    })
-                self.set_recommendations(recommendations_data, app)
-        except spotipy.exceptions.SpotifyException as e:
-            if e.http_status == 403:
-                self.set_recommendation_output("Error: Access forbidden. You may need a Spotify Premium account to access recommendations.", app)
-            elif e.http_status == 404:
-                self.set_recommendation_output("Error: Recommendations not available. The track, artist, or genre may not be accessible in your region.", app)
-            else:
-                self.set_recommendation_output(f"Spotify API Error: {str(e)}", app)
-        except Exception as e:
-            self.set_recommendation_output(f"Error: {str(e)}", app)
-
-    def set_recommendations(self, recommendations, app):
-        for i in range(3, app.content_grid.count()):
-            widget = app.content_grid.itemAt(i).widget()
-            if widget is not None:
-                widget.deleteLater()
-
-        content_width = app.content_area.width() - 30  # Subtract some padding
-        image_max_size = min(content_width // 4, 150)  # Responsive max image size
-
+    def display_recommendations(self, recommendations):
+        self.clear_recommendations()
+        
+        if not recommendations:
+            self.show_message("No valid recommendations to display.")
+            return
+        
+        content_width = self.content_container.width() - 40
+        items_per_row = 2 if content_width > 600 else 1
+        image_size = min(self.max_image_size, (content_width // items_per_row) - 40)
+        
         for i, rec in enumerate(recommendations):
-            container = QWidget()
-            layout = QHBoxLayout(container)
-            layout.setContentsMargins(5, 5, 5, 5)
-
+            row = i // items_per_row
+            col = i % items_per_row
+            
+            card = QWidget()
+            card.setStyleSheet("background-color: #2A2A2A; border-radius: 8px; padding: 10px;")
+            card.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            
+            layout = QHBoxLayout(card)
+            layout.setContentsMargins(10, 10, 10, 10)
+            layout.setSpacing(15)
+            
             image_label = QLabel()
+            image_label.setFixedSize(image_size, image_size)
+            image_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            
             if rec['image_url']:
                 try:
                     response = requests.get(rec['image_url'])
-                    image_data = BytesIO(response.content)
                     pixmap = QPixmap()
-                    pixmap.loadFromData(image_data.read())
-                    scaled_pixmap = pixmap.scaled(image_max_size, image_max_size, Qt.AspectRatioMode.KeepAspectRatioByExpanding, Qt.TransformationMode.SmoothTransformation)
-                    image_label.setPixmap(scaled_pixmap)
+                    pixmap.loadFromData(response.content)
+                    pixmap = pixmap.scaled(
+                        image_size, image_size, 
+                        Qt.AspectRatioMode.KeepAspectRatio, 
+                        Qt.TransformationMode.SmoothTransformation
+                    )
+                    image_label.setPixmap(pixmap)
                 except Exception:
-                    image_label.setText("Image not available")
+                    image_label.setText("No Image")
+                    image_label.setStyleSheet("color: #AAAAAA; font-size: 12px;")
             else:
-                image_label.setText("No image")
-            image_label.setMaximumSize(image_max_size, image_max_size)
-            image_label.setStyleSheet(f"border: 1px solid #1DB954; border-radius: 5px; max-width: {image_max_size}px; max-height: {image_max_size}px;")
+                image_label.setText("No Image")
+                image_label.setStyleSheet("color: #AAAAAA; font-size: 12px;")
+            
             layout.addWidget(image_label)
+            
+            info_widget = QWidget()
+            info_layout = QVBoxLayout(info_widget)
+            info_layout.setContentsMargins(0, 0, 0, 0)
+            info_layout.setSpacing(5)
+            
+            song_label = QLabel(rec['name'])
+            song_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #FFFFFF;")
+            song_label.setWordWrap(True)
+            
+            artist_label = QLabel(rec['artist'])
+            artist_label.setStyleSheet("font-size: 14px; color: #AAAAAA;")
+            artist_label.setWordWrap(True)
+            
+            info_layout.addWidget(song_label)
+            info_layout.addWidget(artist_label)
+            info_layout.addStretch()
+            
+            layout.addWidget(info_widget, 1)
+            
+            self.content_grid.addWidget(card, row, col)
+        
+        self.content_container.adjustSize()
 
-            info_label = QLabel(f"{rec['name']} by {rec['artist']}")
-            info_label.setStyleSheet("font-size: 14px; color: #FFFFFF;")
-            info_label.setWordWrap(True)
-            layout.addWidget(info_label)
-
-            row = (i // 2) + 3
-            col = (i % 2) * 2
-            app.content_grid.addWidget(container, row, col, 1, 2)
-
-        app.content_container.adjustSize()
-
-    def clear_recommendations(self, app):
-        for i in range(3, app.content_grid.count()):
-            widget = app.content_grid.itemAt(i).widget()
-            if widget is not None:
+    def clear_recommendations(self):
+        for i in range(self.content_grid.count() - 1, -1, -1):
+            widget = self.content_grid.itemAt(i).widget()
+            if widget:
                 widget.deleteLater()
+        
+        self.content_grid.addItem(
+            QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding), 
+            0, 0, 1, 2
+        )
 
-    def set_recommendation_output(self, text, app):
-        for i in range(3, app.content_grid.count()):
-            widget = app.content_grid.itemAt(i).widget()
-            if widget is not None:
-                widget.deleteLater()
-
-        container = QWidget()
-        layout = QHBoxLayout(container)
-        layout.setContentsMargins(5, 5, 5, 5)
-        label = QLabel(text)
-        label.setStyleSheet("font-size: 14px; color: #FFFFFF;")
-        label.setWordWrap(True)
-        layout.addWidget(label)
-        app.content_grid.addWidget(container, 3, 0, 1, 2)
-        app.content_container.adjustSize()
+    def show_message(self, text):
+        self.clear_recommendations()
+        
+        message = QLabel(text)
+        message.setStyleSheet("font-size: 14px; color: #FFFFFF; padding: 20px;")
+        message.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        message.setWordWrap(True)
+        
+        self.content_grid.addWidget(message, 0, 0, 1, 2)
+        self.content_container.adjustSize()
