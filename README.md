@@ -1,9 +1,9 @@
 <h1 align="center">MUSESTREAM Music Recommend Application</h1>
-<h3 align="center">To install these dependencies on another machine, you would:
+<h3 align="left">To install these dependencies on another machine, you would:
   <br>Copy both requirements.txt and your application files
-  Run: pip install -r requirements.txt 
-  Create a .env file with the Spotify credentials
-  Run the application with python main.py</h3>
+  <br>Run: pip install -r requirements.txt 
+  <br>Create a .env file with the Spotify credentials
+  <br>Run the application with python main.py</h3>
 
 <p align="left">
 </p>
