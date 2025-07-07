@@ -71,7 +71,7 @@ class Recommendations:
             self.background_gif.setMovie(self.movie)
             self.movie.start()  # Start the GIF animation
             # Reduce size to 150x150 pixels (adjust as needed)
-            self.background_gif.setFixedSize(600,300)
+            self.background_gif.setFixedSize(570,300)
         main_layout.addWidget(self.background_gif)
         
         # Create scroll area for content
