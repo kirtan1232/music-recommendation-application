@@ -21,9 +21,9 @@ class MusicRecommendationSystem(QMainWindow):
         self.setCentralWidget(central_widget)
 
         self.sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-            client_id="e0b95b00815a44a7bfe0679d69b0c0c9",
-            client_secret="c64ba96c85e54a72b51c3a933b2402be",
-            redirect_uri="http://127.0.0.1:8888/callback",
+            client_id="YOUR_CLIENT_ID",
+            client_secret="CLIENT_SECRET",
+            redirect_uri="http://127.0.0.1:8888/REDIRECT_URL",
             scope="user-library-read playlist-read-private user-top-read user-read-private user-read-playback-state user-modify-playback-state"
         ))
 
